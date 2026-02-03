@@ -1,94 +1,118 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-import joblib 
-import pandas as pd 
-
-# Adding SQlite3 Setup
-
+import joblib
+import pandas as pd
 import sqlite3
 import datetime
+from typing import Optional
 
-# initializing the Database 
+# ======================================================
+# Database Configuration
+# ======================================================
 
-DB_PATH = "Feedback.db"
+DB_PATH = "feedback.db"
 
-conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-cursor = conn.cursor()
+def get_db_connection():
+    """
+    Creates a new database connection per request.
+    This avoids race conditions and SQLite locking issues.
+    """
+    return sqlite3.connect(DB_PATH)
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS feedback (
-    timestamp TEXT, 
-    income REAL, 
-    loan_amount REAL, 
-    credit_history INTEGER, 
-    prediction INTEGER,
-    actual INTEGER
-)
-""")
+def initialize_database():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS feedback (
+            timestamp TEXT,
+            income REAL,
+            loan_amount REAL,
+            credit_history INTEGER,
+            prediction INTEGER,
+            actual INTEGER
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-conn.commit()
+initialize_database()
 
-# Initialize the app
+# ======================================================
+# FastAPI App Initialization
+# ======================================================
 
 app = FastAPI(
-    title = "Self - Correcting Loan Engine",
-    version = "1.0"
+    title="Self-Correcting Loan Engine",
+    version="1.0"
 )
 
-# Loading the model 
+# ======================================================
+# Load Model
+# ======================================================
 
 MODEL_PATH = "artifacts/model.pkl"
 
 try:
     model = joblib.load(MODEL_PATH)
-except Exception as e: 
-    raise RuntimeError(f"Failed to Load the Model: {e}")
+except Exception as e:
+    raise RuntimeError(f"Failed to load model: {e}")
 
-# Define the Input Schema 
+# ======================================================
+# Schemas
+# ======================================================
 
 class LoanApplication(BaseModel):
-    Income: float = Field(..., gt = 0)
-    LoanAmount: float = Field(..., gt = 0)
-    CreditHistory: int = Field(..., ge = 0, le = 1)
-
-# Defining Feedback Schema 
+    Income: float = Field(..., gt=0)
+    LoanAmount: float = Field(..., gt=0)
+    CreditHistory: int = Field(..., ge=0, le=1)
 
 class Feedback(BaseModel):
-    Income : float 
-    LoanAmount : float 
-    CreditHistory : int 
-    prediction : int 
-    actual : int 
+    Income: float
+    LoanAmount: float
+    CreditHistory: int
+    prediction: int
+    actual: int
+
+# ======================================================
+# Prediction Endpoint
+# ======================================================
 
 @app.post("/predict")
 def predict_loan(data: LoanApplication):
     try:
         df = pd.DataFrame([data.dict()])
         prediction = int(model.predict(df)[0])
-        probability = float(model.predict_proba(df)[0][1])
 
+        # Defensive probability handling
+        if hasattr(model, "predict_proba"):
+            probability = float(model.predict_proba(df)[0][1])
+        else:
+            probability = None
 
         return {
-            "prediction" : prediction, 
-            "probability" : probability
+            "prediction": prediction,
+            "probability": probability
         }
 
     except Exception as e:
-        raise HTTPException(status_code= 500, detail = str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
+# ======================================================
+# Feedback Endpoint (Human-in-the-Loop)
+# ======================================================
 
-
-# Adding Feedback endPoint 
 @app.post("/feedback")
 def log_feedback(data: Feedback):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
     try:
         cursor.execute(
             """
-            INSERT INTO feedback
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO feedback VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
-                datetime.datetime.utcnow().isoformat(), 
+                datetime.datetime.utcnow().isoformat(),
                 data.Income,
                 data.LoanAmount,
                 data.CreditHistory,
@@ -98,34 +122,38 @@ def log_feedback(data: Feedback):
         )
         conn.commit()
 
-
-        return {
-            "message" : "Feedback Logged Successfully"
-        }
+        return {"message": "Feedback Logged Successfully"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+    finally:
+        conn.close()
 
-# Adding Monitoring EndPoint 
+# ======================================================
+# Monitoring / Stats Endpoint
+# ======================================================
 
 @app.get("/stats")
 def get_stats():
-    df = pd.read_sql("SELECT * FROM feedback", conn)
+    conn = get_db_connection()
 
-    if df.empty:
+    try:
+        df = pd.read_sql("SELECT * FROM feedback", conn)
+
+        if df.empty:
+            return {
+                "total_feedback": 0,
+                "live_accuracy": None
+            }
+
+        correct = (df["prediction"] == df["actual"]).sum()
+        total = len(df)
+
         return {
-            "total_feedback": 0, 
-            "live_accuracy": None 
+            "total_feedback": total,
+            "live_accuracy": round(correct / total, 3)
         }
 
-    correct = (df["prediction"] == df["actual"]).sum()
-    total = len(df)
-
-    return {
-        "total_feedback": total, 
-        "live_accuracy": round(correct / total, 3) if total > 0 else None
-    }
-    
-
- 
+    finally:
+        conn.close()
