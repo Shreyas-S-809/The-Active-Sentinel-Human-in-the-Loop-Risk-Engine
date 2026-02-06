@@ -9,7 +9,7 @@ st.caption("Human-in-the-Loop Loan Decision System")
 
 # API Configuration 
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = "https://active-sentinel.onrender.com/"
 
 # User Input Section (SideBar)
 
