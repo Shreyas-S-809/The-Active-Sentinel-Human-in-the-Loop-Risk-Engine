@@ -1,0 +1,43 @@
+# Python / Virtual Environments
+
+venv/
+.env/
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Git & Version Control
+
+.git/
+.gitignore
+
+# OS / Editor junk
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+
+# Jupyter / Notebooks
+
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs & Runtime files
+*.log
+
+#Local Databses
+
+Feedback.db
+*.db
+
+
+# Model training artifacts 
+data/
+*.csv
+
+
+docker-compose.yml

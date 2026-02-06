@@ -1,9 +1,7 @@
-fastapi
-uvicorn
 streamlit
 scikit-learn
 pandas
 numpy
 joblib
 requests
-sqlite-utils
+pydantic
