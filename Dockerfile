@@ -16,7 +16,8 @@ COPY . .
 # ===============================
 # Install Dependencies
 # ===============================
-RUN pip install --no-cache-dir -r requirements.txt
+# CHANGED: Use requirement-docker.txt which has both backend and frontend dependencies
+RUN pip install --no-cache-dir -r requirement-docker.txt
 
 # ===============================
 # Expose Ports
