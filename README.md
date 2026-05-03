@@ -58,6 +58,7 @@ Financial institutions don't just need accurate models—they need **accountable
 - **Storage:** SQLite (feedback persistence)
 - **Deployment:** Render (HTTPS endpoints)
 
+**This project is fully containerized; please refer to the Docker commands below.**
 ---
 
 ## ✨ Key Features
@@ -231,6 +232,24 @@ streamlit run frontend/app.py
 **Access Points:**
 - Backend: `http://127.0.0.1:8000`
 - Frontend: `http://localhost:8501`
+
+**OR Run it using Docker**
+
+First, pull the latest image:
+
+   ```bash
+   docker pull shreyas809/active-sentinel:latest
+   ```
+Next, Start the container. Make sure to map the ports correctly to `8501`
+
+  ```bash
+  docker run -p 8501:8501 shreyas809/active-sentinel:latest
+  ```
+Once the container is running, open your web browser and navigate to:
+  http://localhost:8501
+
+> _(Note: The terminal might output a link to `0.0.0.0.:8501`. If you are windows, Browsers cannot route to `0.0.0.0`, so always use `localhost` instead!)._
+
 
 ---
 
